@@ -1,0 +1,28 @@
+[package]
+name = "linear_assignment"
+version = "0.0.1"
+authors = ["John Weaver <john@saebyn.info>"]
+
+
+[lib]
+name = "linear_assignment"
+
+
+[dependencies]
+num = "0.1.24"
+log = "0.3"
+
+
+[dev-dependencies.nalgebra]
+version = "0.2.14"
+features = ["quickcheck", "arbitrary"]
+
+
+[dev-dependencies.rand]
+version = "*"
+
+[dev-dependencies.quickcheck]
+version = "0.2.18"
+
+[dev-dependencies.quickcheck_macros]
+version = "0.2.18"
