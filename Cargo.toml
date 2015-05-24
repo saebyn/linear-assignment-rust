@@ -1,6 +1,8 @@
 [package]
 name = "linear_assignment"
 description = "An implementation of the Kuhn–Munkres algorithm to solve linear assignment problems."
+repository = "https://github.com/saebyn/linear-assignment-rust/"
+documentation = "https://saebyn.github.io/linear-assignment-rust/linear_assignment/"
 version = "0.0.1"
 authors = ["John Weaver <john@saebyn.info>"]
 license = "AGPL-3.0"

@@ -1,5 +1,5 @@
 language: rust
-sudo: false
+sudo: true
 matrix:
   include:
     - rust: stable
@@ -12,3 +12,11 @@ script:
       cargo test --verbose --features "$FEATURES"
       [ "$BENCH" != 1 ] || cargo bench --verbose --features "$FEATURES"
       cargo doc --verbose --features "$FEATURES"
+after_success: |
+    [ $TRAVIS_BRANCH = master ] && \
+    [ $TRAVIS_PULL_REQUEST = false ] && \
+    cargo doc && \
+    echo '<meta http-equiv=refresh content=0;url=YOURLIBNAME/index.html>' > target/doc/index.html && \
+    sudo pip install ghp-import && \
+    ghp-import -n target/doc && \
+    git push -qf https://${TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages
