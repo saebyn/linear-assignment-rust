@@ -89,13 +89,13 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
 
     // the algorithm proceeds by "starring" zero weight edges that are optimal with respect to the
     // graph containing only edges that we have starred.
-    let mut stars: HashSet<Edge> = HashSet::new();
+    let mut stars: HashSet<Edge> = HashSet::with_capacity(size.columns);
 
     // additional set up: star every zero weight edge, such that no starred edges should be adjacent.
     star_isolated_set_of_zeros(&mut stars, matrix, size);
 
     // the algorithm also "primes" zeros that are candidates for starring in its next iteration.
-    let mut primes: HashSet<Edge> = HashSet::new();
+    let mut primes: HashSet<Edge> = HashSet::with_capacity(size.columns);
 
     // We "cover" rows and column to exclude them from consideration when looking for zeros to
     // prime.
@@ -344,8 +344,8 @@ fn find_alternating_path(starting_edge: Edge,
 
 fn get_stars_from_path(path: Vec<Edge>, stars: &mut HashSet<Edge>) -> HashSet<Edge> {
     let path = path.into_iter().enumerate();
-    let mut new_stars: HashSet<Edge> = HashSet::new();
-    let mut old_stars: HashSet<Edge> = HashSet::new();
+    let mut new_stars: HashSet<Edge> = HashSet::with_capacity(stars.len());
+    let mut old_stars: HashSet<Edge> = HashSet::with_capacity(stars.len());
 
     for (i, edge) in path {
         if i % 2 == 0 {
@@ -414,7 +414,7 @@ fn reduce_edges<'a, T>(matrix: &'a mut T, size: &MatrixSize) -> &'a mut T
 fn star_isolated_set_of_zeros<'a, T>(stars: &'a mut HashSet<Edge>, matrix: &T, size: &MatrixSize) -> &'a mut HashSet<Edge>
     where T: IndexMut<Edge>,
           T::Output: Weight {
-    let mut columns = HashSet::new();
+    let mut columns = HashSet::with_capacity(size.columns);
 
     for row in 0..size.rows {
         for column in 0..size.columns {
