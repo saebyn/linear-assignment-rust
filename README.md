@@ -1,5 +1,7 @@
 # linear-assignment
 
+[![Build Status](https://travis-ci.org/saebyn/linear-assignment-rust.svg)](https://travis-ci.org/saebyn/linear-assignment-rust)
+
 An implementation of the [Kuhn–Munkres algorithm](http://en.wikipedia.org/wiki/Hungarian_algorithm) to solve [linear assignment problems](http://en.wikipedia.org/wiki/Assignment_problem).
 
 ## License
