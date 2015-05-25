@@ -136,22 +136,8 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
                 find_uncovered_zero(&*matrix, &size, &columns_covered, &rows_covered) == None
             );
 
-            // we want to know now, what the smallest uncovered value is.
-            // TODO we might be able to find this while in prime_zeros()
-            let smallest = find_smallest_uncovered(&*matrix, &size, &columns_covered, &rows_covered);
+            adjust_weights(matrix, &size, &mut columns_covered, &mut rows_covered);
 
-            // adjust weights
-            for row in 0..size.rows {
-                for column in 0..size.columns {
-                    if rows_covered.contains(&row) {
-                        matrix[(row, column)] = matrix[(row, column)] + smallest;
-                    }
-                    if !columns_covered.contains(&column) {
-                        matrix[(row, column)] = matrix[(row, column)] - smallest;
-                    }
-                    debug_assert!(matrix[(row, column)] >= T::Output::zero());
-                }
-            }
         }
     }
     // Once here, we have found our solution in the `stars`.
@@ -220,6 +206,28 @@ fn prime_zeros<T>(matrix: &T, size: &MatrixSize,
                 }
             },
             None => return true,
+        }
+    }
+}
+
+
+fn adjust_weights<T>(matrix: &mut T, size: &MatrixSize, columns_covered: &mut HashSet<usize>, rows_covered: &mut HashSet<usize>)
+    where T: IndexMut<Edge>,
+          T::Output: Weight {
+    // we want to know now, what the smallest uncovered value is.
+    // TODO we might be able to find this while in prime_zeros()
+    let smallest = find_smallest_uncovered(&*matrix, &size, &columns_covered, &rows_covered);
+
+    // adjust weights
+    for row in 0..size.rows {
+        for column in 0..size.columns {
+            if rows_covered.contains(&row) {
+                matrix[(row, column)] = matrix[(row, column)] + smallest;
+            }
+            if !columns_covered.contains(&column) {
+                matrix[(row, column)] = matrix[(row, column)] - smallest;
+            }
+            debug_assert!(matrix[(row, column)] >= T::Output::zero());
         }
     }
 }
