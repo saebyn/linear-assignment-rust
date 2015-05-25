@@ -122,9 +122,9 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
 
         // Otherwise, we proceed with the algorithm.
 
-        while prime_zeros(&*matrix, &size, &mut columns_covered, &mut rows_covered, &mut stars, &mut primes) {
+        while prime_zeros(find_zeros(&*matrix, &size), &mut columns_covered, &mut rows_covered, &mut stars, &mut primes) {
             debug_assert!(
-                all_stars_covered(&stars, &size, &columns_covered, &rows_covered),
+                all_stars_covered(&stars, &columns_covered, &rows_covered),
                 "stars = {:?}, columns covered = {:?}, rows covered = {:?}",
                 stars, columns_covered, rows_covered
             );
@@ -135,7 +135,7 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
                 primes
             );
             debug_assert!(
-                find_uncovered_zero(&*matrix, &size, &columns_covered, &rows_covered) == None
+                find_uncovered_zero(&find_zeros(&*matrix, &size), &columns_covered, &rows_covered) == None
             );
 
             adjust_weights(matrix, &size, &mut columns_covered, &mut rows_covered);
@@ -153,19 +153,14 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
 /// Prime all uncovered zeros, covering its row, and uncovering its column.
 /// If we prime a zero, and it's row has no starred zero, we want to find the "alternating path"
 /// of primed and starred zeros in `matrix`, update everything, and then quit.
-fn prime_zeros<T>(matrix: &T, size: &MatrixSize, 
-                  columns_covered: &mut BitSet, rows_covered: &mut BitSet, 
-                  stars: &mut HashSet<Edge>, primes: &mut HashSet<Edge>) -> bool
-    where T: Index<Edge>,
-          T::Output: Weight {
+fn prime_zeros(zeros: Vec<Edge>, columns_covered: &mut BitSet, rows_covered: &mut BitSet, 
+               stars: &mut HashSet<Edge>, primes: &mut HashSet<Edge>) -> bool {
     // Things to think about:
     //   - the priming procedure doesn't change the weights, so we can cache knowledge about
     //     where the zeros are
     //   - we scan each uncovered row (there may be covered rows that we didn't cover in
     //     this pass, from a previous pass that was interrupted by "alternate path")
     //   - we don't ever uncover a row here
-    // TODO collect the position of all zeros in `matrix`, since this won't change until
-    // this loop restarts.
     // TODO could we find a better data structure for this?
     // TODO how does doing this here affect complexity?
     // TODO collect which rows have stars, since this won't change until the loop restarts.
@@ -173,12 +168,12 @@ fn prime_zeros<T>(matrix: &T, size: &MatrixSize,
     // TODO how does doing this here affect complexity?
     loop {
         debug_assert!(
-            all_stars_covered(stars, size, columns_covered, rows_covered),
+            all_stars_covered(stars, columns_covered, rows_covered),
             "stars = {:?}, columns covered = {:?}, rows covered = {:?}",
             stars, columns_covered, rows_covered
         );
 
-        match find_uncovered_zero(matrix, size, columns_covered, rows_covered) {
+        match find_uncovered_zero(&zeros, columns_covered, rows_covered) {
             Some(edge_to_prime) => {
                 debug_assert!(!primes.contains(&edge_to_prime));
                 debug_assert!(!stars.contains(&edge_to_prime));
@@ -188,14 +183,6 @@ fn prime_zeros<T>(matrix: &T, size: &MatrixSize,
                 if stars.iter().any(|&(row, _)| row == edge_to_prime.0) {
                     // cover this row, uncover this column
                     rows_covered.insert(edge_to_prime.0);
-                    debug_assert!(
-                        rows_covered.len() < size.rows,
-                        "prime_zeros covered the last row! row = {:?}, stars = {:?}, rows_covered = {:?}, columns_covered = {:?}",
-                        edge_to_prime.0,
-                        stars,
-                        rows_covered,
-                        columns_covered
-                    );
                     columns_covered.remove(&edge_to_prime.1);
                 } else {
                     let path = find_alternating_path(edge_to_prime, &*stars, &*primes);
@@ -235,39 +222,42 @@ fn adjust_weights<T>(matrix: &mut T, size: &MatrixSize, columns_covered: &mut Bi
 }
 
 
-fn all_stars_covered(stars: &HashSet<Edge>,  size: &MatrixSize,columns_covered: &BitSet, rows_covered: &BitSet) -> bool {
-    for row in 0..size.rows {
-        if !rows_covered.contains(&row) {
-            for column in 0..size.columns {
-                if !columns_covered.contains(&column) {
-                    if stars.contains(&(row, column)) {
-                        return false;
-                    }
-                }
-            }
+fn all_stars_covered(stars: &HashSet<Edge>, columns_covered: &BitSet, rows_covered: &BitSet) -> bool {
+    for &(row, column) in stars.iter() {
+        if !rows_covered.contains(&row) && !columns_covered.contains(&column) {
+            return false;
         }
     }
     true
 }
 
 
-fn find_uncovered_zero<T>(matrix: &T, size: &MatrixSize, 
-                          columns_covered: &BitSet, rows_covered: &BitSet) -> Option<Edge> 
-    where T: Index<Edge>,
-          T::Output: Weight {
-    for row in 0..size.rows {
-        if !rows_covered.contains(&row) {
-            for column in 0..size.columns {
-                if !columns_covered.contains(&column) {
-                    if matrix[(row, column)] == T::Output::zero() {
-                        return Some((row, column));
-                    }
-                }
-            }
+fn find_uncovered_zero(zeros: &Vec<Edge>, 
+                       columns_covered: &BitSet, rows_covered: &BitSet) -> Option<Edge> {
+    for &(row, column) in zeros {
+        if !rows_covered.contains(&row) && !columns_covered.contains(&column) {
+            return Some((row, column));
         }
     }
 
     None::<Edge>
+}
+
+
+fn find_zeros<T>(matrix: &T, size: &MatrixSize) -> Vec<Edge>
+    where T: Index<Edge>,
+          T::Output: Weight {
+    let mut zeros = Vec::new();
+
+    for row in 0..size.rows {
+        for column in 0..size.columns {
+            if matrix[(row, column)] == T::Output::zero() {
+                zeros.push((row, column));
+            }
+        }
+    }
+
+    zeros
 }
 
 
