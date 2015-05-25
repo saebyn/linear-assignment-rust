@@ -208,14 +208,18 @@ fn adjust_weights<T>(matrix: &mut T, size: &MatrixSize, columns_covered: &mut Bi
     let smallest = find_smallest_uncovered(&*matrix, &size, &columns_covered, &rows_covered);
 
     // adjust weights
-    for row in 0..size.rows {
+    for row in rows_covered.iter() {
         for column in 0..size.columns {
-            if rows_covered.contains(&row) {
-                matrix[(row, column)] = matrix[(row, column)] + smallest;
-            }
-            if !columns_covered.contains(&column) {
-                matrix[(row, column)] = matrix[(row, column)] - smallest;
-            }
+            matrix[(row, column)] = matrix[(row, column)] + smallest;
+            debug_assert!(matrix[(row, column)] >= T::Output::zero());
+        }
+    }
+
+    let columns: BitSet = BitSet::from_iter(0..size.columns);
+    let columns_uncovered = columns.difference(columns_covered);
+    for column in columns_uncovered {
+        for row in 0..size.rows {
+            matrix[(row, column)] = matrix[(row, column)] - smallest;
             debug_assert!(matrix[(row, column)] >= T::Output::zero());
         }
     }
