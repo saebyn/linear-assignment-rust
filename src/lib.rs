@@ -1,3 +1,4 @@
+#![feature(collections)]
 //! This is a library for solving the [linear assignment
 //! problem](http://en.wikipedia.org/wiki/Assignment_problem).
 //! For this problem, it is helpful to think of the data as a [bipartite
@@ -25,6 +26,7 @@ use std::ops::Add;
 use std::ops::Sub;
 use std::cmp;
 use std::collections::HashSet;
+use std::collections::BitSet;
 use std::iter::FromIterator;
 
 extern crate num;
@@ -99,8 +101,8 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
 
     // We "cover" rows and column to exclude them from consideration when looking for zeros to
     // prime.
-    let mut columns_covered = HashSet::<usize>::new();
-    let mut rows_covered = HashSet::<usize>::new();
+    let mut columns_covered = BitSet::new();
+    let mut rows_covered = BitSet::new();
 
     let mut covered_column_count = 0;
 
@@ -152,7 +154,7 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
 /// If we prime a zero, and it's row has no starred zero, we want to find the "alternating path"
 /// of primed and starred zeros in `matrix`, update everything, and then quit.
 fn prime_zeros<T>(matrix: &T, size: &MatrixSize, 
-                  columns_covered: &mut HashSet<usize>, rows_covered: &mut HashSet<usize>, 
+                  columns_covered: &mut BitSet, rows_covered: &mut BitSet, 
                   stars: &mut HashSet<Edge>, primes: &mut HashSet<Edge>) -> bool
     where T: Index<Edge>,
           T::Output: Weight {
@@ -211,7 +213,7 @@ fn prime_zeros<T>(matrix: &T, size: &MatrixSize,
 }
 
 
-fn adjust_weights<T>(matrix: &mut T, size: &MatrixSize, columns_covered: &mut HashSet<usize>, rows_covered: &mut HashSet<usize>)
+fn adjust_weights<T>(matrix: &mut T, size: &MatrixSize, columns_covered: &mut BitSet, rows_covered: &mut BitSet)
     where T: IndexMut<Edge>,
           T::Output: Weight {
     // we want to know now, what the smallest uncovered value is.
@@ -233,7 +235,7 @@ fn adjust_weights<T>(matrix: &mut T, size: &MatrixSize, columns_covered: &mut Ha
 }
 
 
-fn all_stars_covered(stars: &HashSet<Edge>,  size: &MatrixSize,columns_covered: &HashSet<usize>, rows_covered: &HashSet<usize>) -> bool {
+fn all_stars_covered(stars: &HashSet<Edge>,  size: &MatrixSize,columns_covered: &BitSet, rows_covered: &BitSet) -> bool {
     for row in 0..size.rows {
         if !rows_covered.contains(&row) {
             for column in 0..size.columns {
@@ -250,7 +252,7 @@ fn all_stars_covered(stars: &HashSet<Edge>,  size: &MatrixSize,columns_covered: 
 
 
 fn find_uncovered_zero<T>(matrix: &T, size: &MatrixSize, 
-                          columns_covered: &HashSet<usize>, rows_covered: &HashSet<usize>) -> Option<Edge> 
+                          columns_covered: &BitSet, rows_covered: &BitSet) -> Option<Edge> 
     where T: Index<Edge>,
           T::Output: Weight {
     for row in 0..size.rows {
@@ -270,7 +272,7 @@ fn find_uncovered_zero<T>(matrix: &T, size: &MatrixSize,
 
 
 fn find_smallest_uncovered<T>(matrix: &T, size: &MatrixSize, 
-                              columns_covered: &HashSet<usize>, rows_covered: &HashSet<usize>) -> T::Output
+                              columns_covered: &BitSet, rows_covered: &BitSet) -> T::Output
     where T: Index<Edge>,
           T::Output: Weight {
     debug_assert!(size.rows > 0 && size.columns > 0);
@@ -422,7 +424,7 @@ fn reduce_edges<'a, T>(matrix: &'a mut T, size: &MatrixSize) -> &'a mut T
 fn star_isolated_set_of_zeros<'a, T>(stars: &'a mut HashSet<Edge>, matrix: &T, size: &MatrixSize) -> &'a mut HashSet<Edge>
     where T: IndexMut<Edge>,
           T::Output: Weight {
-    let mut columns = HashSet::new();
+    let mut columns = BitSet::new();
 
     for row in 0..size.rows {
         for column in 0..size.columns {
@@ -447,7 +449,7 @@ fn star_isolated_set_of_zeros<'a, T>(stars: &'a mut HashSet<Edge>, matrix: &T, s
 }
 
 
-fn cover_starred_columns(cover: &mut HashSet<usize>, stars: &HashSet<Edge>) {
+fn cover_starred_columns(cover: &mut BitSet, stars: &HashSet<Edge>) {
     cover.clear();
     cover.extend(stars.iter().map(|x| x.1));
 }

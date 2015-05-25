@@ -1,3 +1,4 @@
+#![feature(collections)]
 // Copyright (c) 2015 John Weaver and contributors.
 // 
 // This program is free software: you can redistribute it and/or modify
@@ -22,6 +23,7 @@ extern crate quickcheck;
 extern crate linear_assignment;
 
 use std::collections::HashSet;
+use std::collections::BitSet;
 use std::cmp;
 use na::Transpose;
 use quickcheck::{TestResult};
@@ -73,8 +75,8 @@ fn result_is_an_independent_set(matrix: na::DMat<u32>) -> TestResult {
         return TestResult::discard()
     }
 
-    let mut rows: HashSet<usize> = HashSet::new();
-    let mut columns: HashSet<usize> = HashSet::new();
+    let mut rows = BitSet::new();
+    let mut columns = BitSet::new();
     let mut count = 0;
 
     for (row, column) in matrix.munkres() {
