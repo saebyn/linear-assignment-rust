@@ -27,7 +27,6 @@ use std::ops::Sub;
 use std::cmp;
 use std::collections::HashSet;
 use std::collections::BitSet;
-use std::iter::FromIterator;
 
 extern crate num;
 
@@ -84,17 +83,16 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
     }
 
     // For set up, we need to change `matrix` so that every column and every row has at least one
-    // zero. because we are only interested in returning the edges from `U` to `V` that represent
+    // zero. Because we are only interested in returning the edges from `U` to `V` that represent
     // the smallest sum of weights, and not the sum of weights itself, we don't need to retain the
     // original values. 
     reduce_edges(matrix, size);
 
-    // the algorithm proceeds by "starring" zero weight edges that are optimal with respect to the
+    // The algorithm proceeds by "starring" zero weight edges that are optimal with respect to the
     // graph containing only edges that we have starred.
-    let mut stars: HashSet<Edge> = HashSet::with_capacity(size.columns);
-
-    // additional set up: star every zero weight edge, such that no starred edges should be adjacent.
-    star_isolated_set_of_zeros(&mut stars, matrix, size);
+    let mut stars = initial_stars(&find_zeros(&*matrix, &size));
+    // TODO make a cache of where the zeros are, preserving their order from matrix, and updating
+    // inside of adjust_weights.
 
     // the algorithm also "primes" zeros that are candidates for starring in its next iteration.
     let mut primes: HashSet<Edge> = HashSet::with_capacity(size.columns);
@@ -155,16 +153,8 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
 /// of primed and starred zeros in `matrix`, update everything, and then quit.
 fn prime_zeros(zeros: Vec<Edge>, columns_covered: &mut BitSet, rows_covered: &mut BitSet, 
                stars: &mut HashSet<Edge>, primes: &mut HashSet<Edge>) -> bool {
-    // Things to think about:
-    //   - the priming procedure doesn't change the weights, so we can cache knowledge about
-    //     where the zeros are
-    //   - we scan each uncovered row (there may be covered rows that we didn't cover in
-    //     this pass, from a previous pass that was interrupted by "alternate path")
-    //   - we don't ever uncover a row here
     // TODO could we find a better data structure for this?
-    // TODO how does doing this here affect complexity?
     // TODO collect which rows have stars, since this won't change until the loop restarts.
-    // TODO could we find a better data structure for this?
     // TODO how does doing this here affect complexity?
     loop {
         debug_assert!(
@@ -186,7 +176,7 @@ fn prime_zeros(zeros: Vec<Edge>, columns_covered: &mut BitSet, rows_covered: &mu
                     columns_covered.remove(&edge_to_prime.1);
                 } else {
                     let path = find_alternating_path(edge_to_prime, &*stars, &*primes);
-                    *stars = get_stars_from_path(path, stars);
+                    *stars = get_stars_from_path(path, &*stars);
                     columns_covered.clear();
                     rows_covered.clear();
                     primes.clear();
@@ -194,6 +184,7 @@ fn prime_zeros(zeros: Vec<Edge>, columns_covered: &mut BitSet, rows_covered: &mu
                     return false;
                 }
             },
+            // We found no uncovered zeros.
             None => return true,
         }
     }
@@ -204,23 +195,21 @@ fn adjust_weights<T>(matrix: &mut T, size: &MatrixSize, columns_covered: &mut Bi
     where T: IndexMut<Edge>,
           T::Output: Weight {
     // we want to know now, what the smallest uncovered value is.
-    // TODO we might be able to find this while in prime_zeros()
     let smallest = find_smallest_uncovered(&*matrix, &size, &columns_covered, &rows_covered);
 
     // adjust weights
     for row in rows_covered.iter() {
         for column in 0..size.columns {
             matrix[(row, column)] = matrix[(row, column)] + smallest;
-            debug_assert!(matrix[(row, column)] >= T::Output::zero());
         }
     }
 
-    let columns: BitSet = BitSet::from_iter(0..size.columns);
-    let columns_uncovered = columns.difference(columns_covered);
-    for column in columns_uncovered {
-        for row in 0..size.rows {
-            matrix[(row, column)] = matrix[(row, column)] - smallest;
-            debug_assert!(matrix[(row, column)] >= T::Output::zero());
+    for column in 0..size.columns {
+        if !columns_covered.contains(&column) {
+            for row in 0..size.rows {
+                matrix[(row, column)] = matrix[(row, column)] - smallest;
+                debug_assert!(matrix[(row, column)] >= T::Output::zero());
+            }
         }
     }
 }
@@ -278,6 +267,7 @@ fn find_smallest_uncovered<T>(matrix: &T, size: &MatrixSize,
         if !rows_covered.contains(&row) {
             for column in 0..size.columns {
                 if !columns_covered.contains(&column) {
+                    debug_assert!(matrix[(row, column)] > T::Output::zero());
                     smallest = match smallest {
                         Some(smaller) => Some(cmp::min(smaller, matrix[(row, column)])),
                         None => Some(matrix[(row, column)]),
@@ -310,10 +300,6 @@ fn find_alternating_path(starting_edge: Edge,
     );
 
     loop {
-        let used: HashSet<Edge> = HashSet::from_iter(path.clone());
-        let primes: HashSet<Edge> = primes.difference(&used).map(|&x| x).collect();
-        let stars: HashSet<Edge> = stars.difference(&used).map(|&x| x).collect();
-
         // z0 is the last found primed zero.
         let z0: Edge = match path.last() {
             Some(&z0) => z0,
@@ -346,7 +332,7 @@ fn find_alternating_path(starting_edge: Edge,
 }
 
 
-fn get_stars_from_path(path: Vec<Edge>, stars: &mut HashSet<Edge>) -> HashSet<Edge> {
+fn get_stars_from_path(path: Vec<Edge>, stars: &HashSet<Edge>) -> HashSet<Edge> {
     let path = path.into_iter().enumerate();
     let mut new_stars: HashSet<Edge> = HashSet::with_capacity(stars.len());
     let mut old_stars: HashSet<Edge> = HashSet::with_capacity(stars.len());
@@ -398,7 +384,7 @@ fn find_smallest_vector<T, F>(matrix: &T, outer_size: usize, inner_size: usize, 
 
 /// We perform a reduction step over each row, then each column, subtracting
 /// the smallest value of each from every element in that row or column.
-/// this step will ensure that every row and every column has at least one zeroed element. 
+/// this step will ensure that every row and every column has at least one zero. 
 fn reduce_edges<'a, T>(matrix: &'a mut T, size: &MatrixSize) -> &'a mut T
     where T: IndexMut<Edge>,
           T::Output: Weight {
@@ -415,29 +401,21 @@ fn reduce_edges<'a, T>(matrix: &'a mut T, size: &MatrixSize) -> &'a mut T
 }
 
 
-fn star_isolated_set_of_zeros<'a, T>(stars: &'a mut HashSet<Edge>, matrix: &T, size: &MatrixSize) -> &'a mut HashSet<Edge>
-    where T: IndexMut<Edge>,
-          T::Output: Weight {
+/// Choose edges from `zeros` such that no two edges connect to the same vertex.
+fn initial_stars(zeros: &Vec<Edge>) -> HashSet<Edge> {
+    let mut stars = HashSet::new();
     let mut columns = BitSet::new();
+    let mut rows = BitSet::new();
 
-    for row in 0..size.rows {
-        for column in 0..size.columns {
-            // now that we've found a zero in the this column, we want to not ever consider any
-            // zeros in this same column.
-            if columns.contains(&column) {
-                break;
-            }
 
-            if matrix[(row, column)] == T::Output::zero() {
-                columns.insert(column);
-                stars.insert((row, column));
-                break;
-            }
+    for &(row, column) in zeros {
+        if !columns.contains(&column) && !rows.contains(&row) {
+            columns.insert(column);
+            rows.insert(row);
+            stars.insert((row, column));
         }
-        // because we only visit a row once, if we find a zero on a row, we don't have to worry
-        // about finding another one, since we stop at the column where we found it and continue
-        // onto the next row.
     }
+
 
     stars
 }

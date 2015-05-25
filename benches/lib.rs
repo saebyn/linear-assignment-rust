@@ -53,6 +53,6 @@ impl LinearAssignmentProblem for na::DMat<u32> {
 
 #[bench]
 fn bench_square(b: &mut Bencher) {
-    let matrix = na::DMat::<u32>::from_fn(50, 50, |x, y| x as u32 * y as u32);
+    let matrix = na::DMat::<u32>::from_fn(100, 100, |x, y| x as u32 * y as u32);
     b.iter(|| matrix.munkres());
 }
