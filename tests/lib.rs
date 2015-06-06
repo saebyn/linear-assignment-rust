@@ -21,6 +21,7 @@ extern crate nalgebra as na;
 extern crate rand;
 extern crate quickcheck;
 extern crate linear_assignment;
+extern crate env_logger;
 
 use std::collections::HashSet;
 use std::collections::BitSet;
@@ -31,6 +32,7 @@ use quickcheck::{TestResult};
 use linear_assignment::*;
 
 
+
 trait LinearAssignmentProblem {
     fn munkres(&self) -> HashSet<Edge>;
 }
@@ -38,6 +40,8 @@ trait LinearAssignmentProblem {
 
 impl LinearAssignmentProblem for na::DMat<u32> {
     fn munkres(&self) -> HashSet<Edge> {
+        env_logger::init();
+
         let mut matrix = &mut na::DMat::<u32>::new_zeros(self.nrows(), self.ncols());
         matrix.clone_from(self);
         let transposed = self.nrows() > self.ncols();
@@ -70,7 +74,7 @@ fn solve_1x1() {
 }
 
 #[test]
-fn solve_2x2() {
+fn solve_2x2_case_1() {
     let test_matrix = na::DMat::from_row_vec(
         2,
         2,
@@ -84,7 +88,21 @@ fn solve_2x2() {
 }
 
 #[test]
-fn solve_3x3() {
+fn solve_2x2_case_2() {
+    let test_matrix = na::DMat::from_row_vec(
+        2,
+        2,
+        &[0, 1,
+          1, 0]
+    );
+    let result = test_matrix.munkres();
+    assert!(result.len() == 2);
+    assert!(result.contains(&(0,0)));
+    assert!(result.contains(&(1,1)));
+}
+
+#[test]
+fn solve_3x3_case_1() {
     let test_matrix = na::DMat::from_row_vec(
         3,
         3,
@@ -128,6 +146,23 @@ fn solve_2x3_case_1() {
     println!("{:?}", result);
     assert!(result.contains(&(0,1)));
     assert!(result.contains(&(1,0)));
+}
+
+#[test]
+fn solve_3x3_case_2() {
+    let test_matrix = na::DMat::from_row_vec(
+        3,
+        3,
+        &[ 1,  0,  9,
+           2,  9,  9,
+          10, 10, 10]
+    );
+    let result = test_matrix.munkres();
+    assert!(result.len() == 3);
+    println!("{:?}", result);
+    assert!(result.contains(&(0,1)));
+    assert!(result.contains(&(1,0)));
+    assert!(result.contains(&(2,2)));
 }
 
 #[quickcheck]

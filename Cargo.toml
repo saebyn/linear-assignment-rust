@@ -22,7 +22,6 @@ log = "0.3"
 version = "0.2.14"
 features = ["quickcheck", "arbitrary"]
 
-
 [dev-dependencies.rand]
 version = "*"
 
@@ -31,3 +30,6 @@ version = "0.2.18"
 
 [dev-dependencies.quickcheck_macros]
 version = "0.2.18"
+
+[dev-dependencies.env_logger]
+version = "*"

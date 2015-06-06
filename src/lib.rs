@@ -74,6 +74,7 @@ pub struct MatrixSize {
 pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
     where T: IndexMut<Edge>,
           T::Output: Weight {
+    info!("Starting solver on {}x{} matrix.", size.rows, size.columns);
     debug_assert!(size.columns >= size.rows);
     let k = cmp::min(size.columns, size.rows);
     // continual invariant: all values in `matrix` must be >= 0.
@@ -107,6 +108,7 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
     // Cover all of the starred columns, then
     // If all columns are now covered, we have a solution.
     loop {
+        info!("Starting outer loop.");
         cover_starred_columns(&mut columns_covered, &stars);
 
         // assert that we make progress here.
@@ -115,11 +117,13 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
 
         debug_assert!(columns_covered.len() <= k);
         if columns_covered.len() == k {
+            info!("Found complete result.");
             break;
         }
 
         // Otherwise, we proceed with the algorithm.
 
+        info!("Priming zeros.");
         while prime_zeros(find_zeros(&*matrix, &size), &mut columns_covered, &mut rows_covered, &mut stars, &mut primes) {
             debug_assert!(
                 all_stars_covered(&stars, &columns_covered, &rows_covered),
@@ -137,13 +141,13 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
             );
 
             adjust_weights(matrix, &size, &mut columns_covered, &mut rows_covered);
-
         }
     }
     // Once here, we have found our solution in the `stars`.
 
     // there should be exactly `size.rows` edges in the returned result.
     debug_assert!(stars.len() == size.rows);
+    info!("Exiting solver.");
     stars
 }
 
@@ -163,14 +167,17 @@ fn prime_zeros(zeros: Vec<Edge>, columns_covered: &mut BitSet, rows_covered: &mu
             stars, columns_covered, rows_covered
         );
 
+        info!("Finding uncovered zeros.");
         match find_uncovered_zero(&zeros, columns_covered, rows_covered) {
             Some(edge_to_prime) => {
+                info!("Found new edge to prime at {:?}", edge_to_prime);
                 debug_assert!(!primes.contains(&edge_to_prime));
                 debug_assert!(!stars.contains(&edge_to_prime));
                 // prime this zero edge
                 primes.insert(edge_to_prime);
                 // if there's a starred zero in this row,
                 if stars.iter().any(|&(row, _)| row == edge_to_prime.0) {
+                    info!("Found starred zero in row of new prime.");
                     // cover this row, uncover this column
                     rows_covered.insert(edge_to_prime.0);
                     columns_covered.remove(&edge_to_prime.1);
@@ -185,7 +192,10 @@ fn prime_zeros(zeros: Vec<Edge>, columns_covered: &mut BitSet, rows_covered: &mu
                 }
             },
             // We found no uncovered zeros.
-            None => return true,
+            None => {
+                info!("Found no more uncovered zeros.");
+                return true;
+            },
         }
     }
 }
@@ -194,6 +204,7 @@ fn prime_zeros(zeros: Vec<Edge>, columns_covered: &mut BitSet, rows_covered: &mu
 fn adjust_weights<T>(matrix: &mut T, size: &MatrixSize, columns_covered: &mut BitSet, rows_covered: &mut BitSet)
     where T: IndexMut<Edge>,
           T::Output: Weight {
+    info!("Adjusting weights.");
     // we want to know now, what the smallest uncovered value is.
     let smallest = find_smallest_uncovered(&*matrix, &size, &columns_covered, &rows_covered);
 
@@ -290,6 +301,7 @@ fn find_smallest_uncovered<T>(matrix: &T, size: &MatrixSize,
 
 fn find_alternating_path(starting_edge: Edge,
                          stars: &HashSet<Edge>, primes: &HashSet<Edge>) -> Vec<Edge> {
+    info!("Finding alternating path.");
     let mut path = vec![starting_edge];
 
     debug_assert!(
@@ -328,6 +340,7 @@ fn find_alternating_path(starting_edge: Edge,
         }
     }
 
+    info!("Finished finding alternating path of {} steps", path.len());
     path
 }
 
@@ -382,21 +395,16 @@ fn find_smallest_vector<T, F>(matrix: &T, outer_size: usize, inner_size: usize, 
 }
 
 
-/// We perform a reduction step over each row, then each column, subtracting
-/// the smallest value of each from every element in that row or column.
-/// this step will ensure that every row and every column has at least one zero. 
+/// We perform a reduction step over each row, subtracting
+/// the smallest value of each from every element in that row.
+/// this step will ensure that every row has at least one zero. 
 fn reduce_edges<'a, T>(matrix: &'a mut T, size: &MatrixSize) -> &'a mut T
     where T: IndexMut<Edge>,
           T::Output: Weight {
-    let smallest_in_column = find_smallest_vector(matrix, size.columns, size.rows, |column, row| (row, column));
-    // subtract the smallest value of a column from each value in that column
-    subtract_from_matrix(matrix, size, |_, column| smallest_in_column[column]);
-
     let smallest_in_row = find_smallest_vector(matrix, size.rows, size.columns, |row, column| (row, column));
-    // ... and then do the same for each row.
     subtract_from_matrix(matrix, size, |row, _| smallest_in_row[row]);
 
-    // assertion: every row and column has at least one zero.
+    // assertion: every row has at least one zero.
     matrix
 }
 
