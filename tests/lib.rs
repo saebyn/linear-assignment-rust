@@ -57,6 +57,79 @@ impl LinearAssignmentProblem for na::DMat<u32> {
 }
 
 
+#[test]
+fn solve_1x1() {
+    let test_matrix = na::DMat::from_row_vec(
+        1,
+        1,
+        &[0]
+    );
+    let result = test_matrix.munkres();
+    assert!(result.len() == 1);
+    assert!(result.contains(&(0,0)));
+}
+
+#[test]
+fn solve_2x2() {
+    let test_matrix = na::DMat::from_row_vec(
+        2,
+        2,
+        &[1, 0,
+          0, 1]
+    );
+    let result = test_matrix.munkres();
+    assert!(result.len() == 2);
+    assert!(result.contains(&(0,1)));
+    assert!(result.contains(&(1,0)));
+}
+
+#[test]
+fn solve_3x3() {
+    let test_matrix = na::DMat::from_row_vec(
+        3,
+        3,
+        &[1, 0, 1,
+          0, 1, 1,
+          1, 1, 0]
+    );
+    let result = test_matrix.munkres();
+    assert!(result.len() == 3);
+    assert!(result.contains(&(0,1)));
+    assert!(result.contains(&(1,0)));
+    assert!(result.contains(&(2,2)));
+}
+
+#[test]
+fn solve_3x2_case_1() {
+    let test_matrix = na::DMat::from_row_vec(
+        3,
+        2,
+        &[1, 2,
+          0, 9,
+          9, 9]
+    );
+    let result = test_matrix.munkres();
+    assert!(result.len() == 2);
+    println!("{:?}", result);
+    assert!(result.contains(&(0,1)));
+    assert!(result.contains(&(1,0)));
+}
+
+#[test]
+fn solve_2x3_case_1() {
+    let test_matrix = na::DMat::from_row_vec(
+        2,
+        3,
+        &[1, 0, 9,
+          2, 9, 9]
+    );
+    let result = test_matrix.munkres();
+    assert!(result.len() == 2);
+    println!("{:?}", result);
+    assert!(result.contains(&(0,1)));
+    assert!(result.contains(&(1,0)));
+}
+
 #[quickcheck]
 fn number_of_results_is_k(matrix: na::DMat<u32>) -> TestResult {
     if matrix.ncols() > 10 || matrix.nrows() > 10 {
