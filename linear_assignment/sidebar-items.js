@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["solver","Find a solution to the assignment problem in `matrix`."]],"struct":[["MatrixSize",""]],"trait":[["Weight",""]],"type":[["Edge","An edge between `U` and `V`: (u, v)"]]});
