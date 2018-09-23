@@ -1,4 +1,3 @@
-#![feature(collections)]
 // Copyright (c) 2015 John Weaver and contributors.
 // 
 // This program is free software: you can redistribute it and/or modify
@@ -22,9 +21,10 @@ extern crate rand;
 extern crate quickcheck;
 extern crate linear_assignment;
 extern crate env_logger;
+extern crate bit_set;
 
 use std::collections::HashSet;
-use std::collections::BitSet;
+use bit_set::BitSet;
 use std::cmp;
 use na::Transpose;
 use quickcheck::{TestResult};
