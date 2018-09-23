@@ -14,9 +14,9 @@ name = "linear_assignment"
 
 
 [dependencies]
-num = "0.2"
-log = "0.4"
-bit-set = "0.5.0"
+num = "0.2.0"
+log = "0.4.8"
+bit-set = "0.5.1"
 
 
 [dev-dependencies.nalgebra]
