@@ -1,4 +1,3 @@
-#![feature(collections)]
 //! This is a library for solving the [linear assignment
 //! problem](http://en.wikipedia.org/wiki/Assignment_problem).
 //! For this problem, it is helpful to think of the data as a [bipartite
@@ -26,11 +25,12 @@ use std::ops::Add;
 use std::ops::Sub;
 use std::cmp;
 use std::collections::HashSet;
-use std::collections::BitSet;
 
 extern crate num;
+extern crate bit_set;
 
 use num::Zero;
+use bit_set::BitSet;
 
 #[macro_use]
 extern crate log;
@@ -180,7 +180,7 @@ fn prime_zeros(zeros: Vec<Edge>, columns_covered: &mut BitSet, rows_covered: &mu
                     info!("Found starred zero in row of new prime.");
                     // cover this row, uncover this column
                     rows_covered.insert(edge_to_prime.0);
-                    columns_covered.remove(&edge_to_prime.1);
+                    columns_covered.remove(edge_to_prime.1);
                 } else {
                     let path = find_alternating_path(edge_to_prime, &*stars, &*primes);
                     *stars = get_stars_from_path(path, &*stars);
@@ -216,7 +216,7 @@ fn adjust_weights<T>(matrix: &mut T, size: &MatrixSize, columns_covered: &mut Bi
     }
 
     for column in 0..size.columns {
-        if !columns_covered.contains(&column) {
+        if !columns_covered.contains(column) {
             for row in 0..size.rows {
                 matrix[(row, column)] = matrix[(row, column)] - smallest;
                 debug_assert!(matrix[(row, column)] >= T::Output::zero());
@@ -228,7 +228,7 @@ fn adjust_weights<T>(matrix: &mut T, size: &MatrixSize, columns_covered: &mut Bi
 
 fn all_stars_covered(stars: &HashSet<Edge>, columns_covered: &BitSet, rows_covered: &BitSet) -> bool {
     for &(row, column) in stars.iter() {
-        if !rows_covered.contains(&row) && !columns_covered.contains(&column) {
+        if !rows_covered.contains(row) && !columns_covered.contains(column) {
             return false;
         }
     }
@@ -239,7 +239,7 @@ fn all_stars_covered(stars: &HashSet<Edge>, columns_covered: &BitSet, rows_cover
 fn find_uncovered_zero(zeros: &Vec<Edge>, 
                        columns_covered: &BitSet, rows_covered: &BitSet) -> Option<Edge> {
     for &(row, column) in zeros {
-        if !rows_covered.contains(&row) && !columns_covered.contains(&column) {
+        if !rows_covered.contains(row) && !columns_covered.contains(column) {
             return Some((row, column));
         }
     }
@@ -275,9 +275,9 @@ fn find_smallest_uncovered<T>(matrix: &T, size: &MatrixSize,
     let mut smallest = None;
 
     for row in 0..size.rows {
-        if !rows_covered.contains(&row) {
+        if !rows_covered.contains(row) {
             for column in 0..size.columns {
-                if !columns_covered.contains(&column) {
+                if !columns_covered.contains(column) {
                     debug_assert!(matrix[(row, column)] > T::Output::zero());
                     smallest = match smallest {
                         Some(smaller) => Some(cmp::min(smaller, matrix[(row, column)])),
@@ -417,7 +417,7 @@ fn initial_stars(zeros: &Vec<Edge>) -> HashSet<Edge> {
 
 
     for &(row, column) in zeros {
-        if !columns.contains(&column) && !rows.contains(&row) {
+        if !columns.contains(column) && !rows.contains(row) {
             columns.insert(column);
             rows.insert(row);
             stars.insert((row, column));

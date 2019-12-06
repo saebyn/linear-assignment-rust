@@ -1,4 +1,3 @@
-#![feature(collections)]
 // Copyright (c) 2015 John Weaver and contributors.
 // 
 // This program is free software: you can redistribute it and/or modify
@@ -22,11 +21,11 @@ extern crate rand;
 extern crate quickcheck;
 extern crate linear_assignment;
 extern crate env_logger;
+extern crate bit_set;
 
 use std::collections::HashSet;
-use std::collections::BitSet;
+use bit_set::BitSet;
 use std::cmp;
-use na::Transpose;
 use quickcheck::{TestResult};
 
 use linear_assignment::*;
@@ -38,20 +37,20 @@ trait LinearAssignmentProblem {
 }
 
 
-impl LinearAssignmentProblem for na::DMat<u32> {
+impl LinearAssignmentProblem for na::DMatrix<u32> {
     fn munkres(&self) -> HashSet<Edge> {
-        env_logger::init();
-
-        let mut matrix = &mut na::DMat::<u32>::new_zeros(self.nrows(), self.ncols());
-        matrix.clone_from(self);
         let transposed = self.nrows() > self.ncols();
-
-        if transposed {
-            matrix.transpose_mut();
-        }
+    
+        let mut matrix = {
+            if transposed {
+                self.transpose()
+            } else {
+                self.clone()
+            }
+        };
         let size = MatrixSize { rows: matrix.nrows(), columns: matrix.ncols() };
         assert!(size.columns >= size.rows);
-        let edges = solver::<na::DMat<u32>>(&mut matrix, &size);
+        let edges = solver::<na::DMatrix<u32>>(&mut matrix, &size);
         if transposed {
             edges.iter().map(|&(v, u)| (u, v)).collect()
         } else {
@@ -63,7 +62,7 @@ impl LinearAssignmentProblem for na::DMat<u32> {
 
 #[test]
 fn solve_1x1() {
-    let test_matrix = na::DMat::from_row_vec(
+    let test_matrix = na::DMatrix::from_row_slice(
         1,
         1,
         &[0]
@@ -75,7 +74,7 @@ fn solve_1x1() {
 
 #[test]
 fn solve_2x2_case_1() {
-    let test_matrix = na::DMat::from_row_vec(
+    let test_matrix = na::DMatrix::from_row_slice(
         2,
         2,
         &[1, 0,
@@ -89,7 +88,7 @@ fn solve_2x2_case_1() {
 
 #[test]
 fn solve_2x2_case_2() {
-    let test_matrix = na::DMat::from_row_vec(
+    let test_matrix = na::DMatrix::from_row_slice(
         2,
         2,
         &[0, 1,
@@ -103,7 +102,7 @@ fn solve_2x2_case_2() {
 
 #[test]
 fn solve_3x3_case_1() {
-    let test_matrix = na::DMat::from_row_vec(
+    let test_matrix = na::DMatrix::from_row_slice(
         3,
         3,
         &[1, 0, 1,
@@ -119,7 +118,7 @@ fn solve_3x3_case_1() {
 
 #[test]
 fn solve_3x2_case_1() {
-    let test_matrix = na::DMat::from_row_vec(
+    let test_matrix = na::DMatrix::from_row_slice(
         3,
         2,
         &[1, 2,
@@ -135,7 +134,7 @@ fn solve_3x2_case_1() {
 
 #[test]
 fn solve_2x3_case_1() {
-    let test_matrix = na::DMat::from_row_vec(
+    let test_matrix = na::DMatrix::from_row_slice(
         2,
         3,
         &[1, 0, 9,
@@ -150,7 +149,7 @@ fn solve_2x3_case_1() {
 
 #[test]
 fn solve_3x3_case_2() {
-    let test_matrix = na::DMat::from_row_vec(
+    let test_matrix = na::DMatrix::from_row_slice(
         3,
         3,
         &[ 1,  0,  9,
@@ -166,7 +165,7 @@ fn solve_3x3_case_2() {
 }
 
 #[quickcheck]
-fn number_of_results_is_k(matrix: na::DMat<u32>) -> TestResult {
+fn number_of_results_is_k(matrix: na::DMatrix<u32>) -> TestResult {
     if matrix.ncols() > 10 || matrix.nrows() > 10 {
         return TestResult::discard()
     }
@@ -178,7 +177,7 @@ fn number_of_results_is_k(matrix: na::DMat<u32>) -> TestResult {
 
 
 #[quickcheck]
-fn result_is_an_independent_set(matrix: na::DMat<u32>) -> TestResult {
+fn result_is_an_independent_set(matrix: na::DMatrix<u32>) -> TestResult {
     if matrix.ncols() > 10 || matrix.nrows() > 10 {
         return TestResult::discard()
     }
@@ -200,7 +199,7 @@ fn result_is_an_independent_set(matrix: na::DMat<u32>) -> TestResult {
 
 
 #[quickcheck]
-fn identical_results(matrix: na::DMat<u32>) -> TestResult {
+fn identical_results(matrix: na::DMatrix<u32>) -> TestResult {
     if matrix.ncols() > 10 || matrix.nrows() > 10 {
         return TestResult::discard()
     }
