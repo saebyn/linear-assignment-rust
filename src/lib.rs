@@ -5,56 +5,52 @@
 //! with weighted, undirected edges fully connecting all elements of set `U`
 //! to all elements of set `V`.
 // Copyright (c) 2015 John Weaver and contributors.
-// 
+//
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as
 // published by the Free Software Foundation, either version 3 of the
 // License, or (at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU Affero General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-use std::fmt::Debug;
-use std::ops::Index;
-use std::ops::IndexMut;
-use std::ops::Add;
-use std::ops::Sub;
 use std::cmp;
 use std::collections::HashSet;
+use std::fmt::Debug;
+use std::ops::Add;
+use std::ops::Index;
+use std::ops::IndexMut;
+use std::ops::Sub;
 
-extern crate num;
 extern crate bit_set;
+extern crate num;
 
-use num::Zero;
 use bit_set::BitSet;
+use num::Zero;
 
 #[macro_use]
 extern crate log;
 
-
 /// An edge between `U` and `V`: (u, v)
 pub type Edge = (usize, usize);
 
-pub trait Weight: Zero + Add<Output=Self> + Sub<Output=Self> + Ord + Copy + Debug {}
-impl<T: Zero + Add<Output=T> + Sub<Output=T> + Ord + Copy + Debug> Weight for T {}
-
-
+pub trait Weight: Zero + Add<Output = Self> + Sub<Output = Self> + Ord + Copy + Debug {}
+impl<T: Zero + Add<Output = T> + Sub<Output = T> + Ord + Copy + Debug> Weight for T {}
 
 pub struct MatrixSize {
     pub rows: usize,
     pub columns: usize,
 }
 
-
 /// Find a solution to the assignment problem in `matrix`.
 ///
 /// Given a bipartite graph consisting of the sets `U` and `V`,
 /// `matrix` represents the weights of the edges `E` between each vertex
-/// represented by the elements of the set `U` and the set `V`. 
+/// represented by the elements of the set `U` and the set `V`.
 ///
 /// `matrix` should be a rectangular matrix, where `size.columns` >= `size.rows`.
 ///
@@ -72,11 +68,21 @@ pub struct MatrixSize {
 /// maximum representable value of type `T::Output`.
 ///
 pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
-    where T: IndexMut<Edge>,
-          T::Output: Weight {
+where
+    T: IndexMut<Edge>,
+    T::Output: Weight,
+{
+    // We "cover" rows and column to exclude them from consideration when looking for zeros to
+    // prime.
+    let mut columns_covered = BitSet::new();
+    let mut rows_covered = BitSet::new();
+
+    // the algorithm also "primes" zeros that are candidates for starring in its next iteration.
+    let mut primes: HashSet<Edge> = HashSet::with_capacity(size.columns);
+
     info!("Starting solver on {}x{} matrix.", size.rows, size.columns);
     debug_assert!(size.columns >= size.rows);
-    let k = cmp::min(size.columns, size.rows);
+    let min_size = cmp::min(size.columns, size.rows);
     // continual invariant: all values in `matrix` must be >= 0.
 
     if size.columns == 0 || size.rows == 0 {
@@ -86,7 +92,7 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
     // For set up, we need to change `matrix` so that every column and every row has at least one
     // zero. Because we are only interested in returning the edges from `U` to `V` that represent
     // the smallest sum of weights, and not the sum of weights itself, we don't need to retain the
-    // original values. 
+    // original values.
     reduce_edges(matrix, size);
 
     // The algorithm proceeds by "starring" zero weight edges that are optimal with respect to the
@@ -94,14 +100,6 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
     let mut stars = initial_stars(&find_zeros(&*matrix, &size));
     // TODO make a cache of where the zeros are, preserving their order from matrix, and updating
     // inside of adjust_weights.
-
-    // the algorithm also "primes" zeros that are candidates for starring in its next iteration.
-    let mut primes: HashSet<Edge> = HashSet::with_capacity(size.columns);
-
-    // We "cover" rows and column to exclude them from consideration when looking for zeros to
-    // prime.
-    let mut columns_covered = BitSet::new();
-    let mut rows_covered = BitSet::new();
 
     let mut covered_column_count = 0;
 
@@ -115,8 +113,8 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
         debug_assert!(columns_covered.len() > covered_column_count);
         covered_column_count = columns_covered.len();
 
-        debug_assert!(columns_covered.len() <= k);
-        if columns_covered.len() == k {
+        debug_assert!(columns_covered.len() <= min_size);
+        if columns_covered.len() >= min_size {
             info!("Found complete result.");
             break;
         }
@@ -124,20 +122,37 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
         // Otherwise, we proceed with the algorithm.
 
         info!("Priming zeros.");
-        while prime_zeros(find_zeros(&*matrix, &size), &mut columns_covered, &mut rows_covered, &mut stars, &mut primes) {
+        while prime_zeros(
+            find_zeros(&*matrix, &size),
+            &mut columns_covered,
+            &mut rows_covered,
+            &mut stars,
+            &mut primes,
+        ) {
             debug_assert!(
                 all_stars_covered(&stars, &columns_covered, &rows_covered),
                 "stars = {:?}, columns covered = {:?}, rows covered = {:?}",
-                stars, columns_covered, rows_covered
+                stars,
+                columns_covered,
+                rows_covered
             );
             debug_assert!(
-                stars.intersection(&primes).cloned().collect::<HashSet<_>>().len() == 0,
+                stars
+                    .intersection(&primes)
+                    .cloned()
+                    .collect::<HashSet<_>>()
+                    .len()
+                    == 0,
                 "The set of stars and primes intersect! stars = {:?}, primes = {:?}.",
                 stars,
                 primes
             );
             debug_assert!(
-                find_uncovered_zero(&find_zeros(&*matrix, &size), &columns_covered, &rows_covered) == None
+                find_uncovered_zero(
+                    &find_zeros(&*matrix, &size),
+                    &columns_covered,
+                    &rows_covered
+                ) == None
             );
 
             adjust_weights(matrix, &size, &mut columns_covered, &mut rows_covered);
@@ -151,12 +166,16 @@ pub fn solver<T>(matrix: &mut T, size: &MatrixSize) -> HashSet<Edge>
     stars
 }
 
-
 /// Prime all uncovered zeros, covering its row, and uncovering its column.
 /// If we prime a zero, and it's row has no starred zero, we want to find the "alternating path"
 /// of primed and starred zeros in `matrix`, update everything, and then quit.
-fn prime_zeros(zeros: Vec<Edge>, columns_covered: &mut BitSet, rows_covered: &mut BitSet, 
-               stars: &mut HashSet<Edge>, primes: &mut HashSet<Edge>) -> bool {
+fn prime_zeros(
+    zeros: Vec<Edge>,
+    columns_covered: &mut BitSet,
+    rows_covered: &mut BitSet,
+    stars: &mut HashSet<Edge>,
+    primes: &mut HashSet<Edge>,
+) -> bool {
     // TODO could we find a better data structure for this?
     // TODO collect which rows have stars, since this won't change until the loop restarts.
     // TODO how does doing this here affect complexity?
@@ -164,7 +183,9 @@ fn prime_zeros(zeros: Vec<Edge>, columns_covered: &mut BitSet, rows_covered: &mu
         debug_assert!(
             all_stars_covered(stars, columns_covered, rows_covered),
             "stars = {:?}, columns covered = {:?}, rows covered = {:?}",
-            stars, columns_covered, rows_covered
+            stars,
+            columns_covered,
+            rows_covered
         );
 
         info!("Finding uncovered zeros.");
@@ -176,34 +197,43 @@ fn prime_zeros(zeros: Vec<Edge>, columns_covered: &mut BitSet, rows_covered: &mu
                 // prime this zero edge
                 primes.insert(edge_to_prime);
                 // if there's a starred zero in this row,
-                if stars.iter().any(|&(row, _)| row == edge_to_prime.0) {
-                    info!("Found starred zero in row of new prime.");
-                    // cover this row, uncover this column
-                    rows_covered.insert(edge_to_prime.0);
-                    columns_covered.remove(edge_to_prime.1);
-                } else {
-                    let path = find_alternating_path(edge_to_prime, &*stars, &*primes);
-                    *stars = get_stars_from_path(path, &*stars);
-                    columns_covered.clear();
-                    rows_covered.clear();
-                    primes.clear();
+                match stars.iter().find(|(row, _)| *row == edge_to_prime.0) {
+                    Some(star) => {
+                        info!("Found starred zero in row of new prime.");
+                        // cover this row, uncover the column of the star
+                        rows_covered.insert(edge_to_prime.0);
+                        columns_covered.remove(star.1);
+                    }
+                    None => {
+                        let path = find_alternating_path(edge_to_prime, &*stars, &*primes);
+                        info!("Found alternating path {:?}", path);
+                        *stars = get_stars_from_path(path, &*stars);
+                        columns_covered.clear();
+                        rows_covered.clear();
+                        primes.clear();
 
-                    return false;
+                        return false;
+                    }
                 }
-            },
+            }
             // We found no uncovered zeros.
             None => {
                 info!("Found no more uncovered zeros.");
                 return true;
-            },
+            }
         }
     }
 }
 
-
-fn adjust_weights<T>(matrix: &mut T, size: &MatrixSize, columns_covered: &mut BitSet, rows_covered: &mut BitSet)
-    where T: IndexMut<Edge>,
-          T::Output: Weight {
+fn adjust_weights<T>(
+    matrix: &mut T,
+    size: &MatrixSize,
+    columns_covered: &mut BitSet,
+    rows_covered: &mut BitSet,
+) where
+    T: IndexMut<Edge>,
+    T::Output: Weight,
+{
     info!("Adjusting weights.");
     // we want to know now, what the smallest uncovered value is.
     let smallest = find_smallest_uncovered(&*matrix, &size, &columns_covered, &rows_covered);
@@ -225,19 +255,26 @@ fn adjust_weights<T>(matrix: &mut T, size: &MatrixSize, columns_covered: &mut Bi
     }
 }
 
-
-fn all_stars_covered(stars: &HashSet<Edge>, columns_covered: &BitSet, rows_covered: &BitSet) -> bool {
+fn all_stars_covered(
+    stars: &HashSet<Edge>,
+    columns_covered: &BitSet,
+    rows_covered: &BitSet,
+) -> bool {
     for &(row, column) in stars.iter() {
-        if !rows_covered.contains(row) && !columns_covered.contains(column) {
+        // a star should be either on a covered row or a covered column,
+        // if not, the star is not covered.
+        if !(rows_covered.contains(row) || columns_covered.contains(column)) {
             return false;
         }
     }
     true
 }
 
-
-fn find_uncovered_zero(zeros: &Vec<Edge>, 
-                       columns_covered: &BitSet, rows_covered: &BitSet) -> Option<Edge> {
+fn find_uncovered_zero(
+    zeros: &Vec<Edge>,
+    columns_covered: &BitSet,
+    rows_covered: &BitSet,
+) -> Option<Edge> {
     for &(row, column) in zeros {
         if !rows_covered.contains(row) && !columns_covered.contains(column) {
             return Some((row, column));
@@ -247,10 +284,11 @@ fn find_uncovered_zero(zeros: &Vec<Edge>,
     None::<Edge>
 }
 
-
 fn find_zeros<T>(matrix: &T, size: &MatrixSize) -> Vec<Edge>
-    where T: Index<Edge>,
-          T::Output: Weight {
+where
+    T: Index<Edge>,
+    T::Output: Weight,
+{
     let mut zeros = Vec::new();
 
     for row in 0..size.rows {
@@ -264,11 +302,16 @@ fn find_zeros<T>(matrix: &T, size: &MatrixSize) -> Vec<Edge>
     zeros
 }
 
-
-fn find_smallest_uncovered<T>(matrix: &T, size: &MatrixSize, 
-                              columns_covered: &BitSet, rows_covered: &BitSet) -> T::Output
-    where T: Index<Edge>,
-          T::Output: Weight {
+fn find_smallest_uncovered<T>(
+    matrix: &T,
+    size: &MatrixSize,
+    columns_covered: &BitSet,
+    rows_covered: &BitSet,
+) -> T::Output
+where
+    T: Index<Edge>,
+    T::Output: Weight,
+{
     debug_assert!(size.rows > 0 && size.columns > 0);
     debug_assert!(columns_covered.len() < size.columns);
     debug_assert!(rows_covered.len() < size.rows);
@@ -292,20 +335,26 @@ fn find_smallest_uncovered<T>(matrix: &T, size: &MatrixSize,
         Some(value) => {
             debug_assert!(value > T::Output::zero());
             value
-        },
+        }
         None => panic!(),
     }
 }
 
-
-
-fn find_alternating_path(starting_edge: Edge,
-                         stars: &HashSet<Edge>, primes: &HashSet<Edge>) -> Vec<Edge> {
+fn find_alternating_path(
+    starting_edge: Edge,
+    stars: &HashSet<Edge>,
+    primes: &HashSet<Edge>,
+) -> Vec<Edge> {
     info!("Finding alternating path.");
     let mut path = vec![starting_edge];
 
     debug_assert!(
-        stars.intersection(&primes).cloned().collect::<HashSet<_>>().len() == 0,
+        stars
+            .intersection(&primes)
+            .cloned()
+            .collect::<HashSet<_>>()
+            .len()
+            == 0,
         "The set of stars and primes intersect! stars = {:?}, primes = {:?}.",
         stars,
         primes
@@ -318,11 +367,12 @@ fn find_alternating_path(starting_edge: Edge,
             None => panic!(),
         };
 
-
-        match stars.iter().find(|&&(_, column)| column == z0.1) {
+        match stars
+            .iter()
+            .find(|&&star| star.1 == z0.1 && !path.contains(&star))
+        {
             // z1 is (if it exists) the starred zero in the same column as z0.
             Some(&z1) => {
-                debug_assert!(!path.contains(&z1));
                 path.push(z1);
                 // If z1 exists, then there must be a primed zero in the same row as it,
                 // and we'll call this primed zero z2.
@@ -330,12 +380,13 @@ fn find_alternating_path(starting_edge: Edge,
                 match primes.iter().find(|&&(row, _)| row == z1.0) {
                     Some(&z2) => {
                         debug_assert!(z0 != z2);
+                        // ^ not necessary, since path contains check will check this.
                         debug_assert!(!path.contains(&z2), "path = {:?}, z2 = {:?}", path, z2);
                         path.push(z2);
-                    },
+                    }
                     None => panic!(),
                 };
-            },
+            }
             None => break,
         }
     }
@@ -343,7 +394,6 @@ fn find_alternating_path(starting_edge: Edge,
     info!("Finished finding alternating path of {} steps", path.len());
     path
 }
-
 
 fn get_stars_from_path(path: Vec<Edge>, stars: &HashSet<Edge>) -> HashSet<Edge> {
     let path = path.into_iter().enumerate();
@@ -362,11 +412,12 @@ fn get_stars_from_path(path: Vec<Edge>, stars: &HashSet<Edge>) -> HashSet<Edge> 
     stars.union(&new_stars).cloned().collect()
 }
 
-
 fn subtract_from_matrix<T, F>(matrix: &mut T, size: &MatrixSize, f: F)
-    where F: Fn(usize, usize) -> T::Output,
-          T: IndexMut<Edge>,
-          T::Output: Weight {
+where
+    F: Fn(usize, usize) -> T::Output,
+    T: IndexMut<Edge>,
+    T::Output: Weight,
+{
     for row in 0..size.rows {
         for column in 0..size.columns {
             matrix[(row, column)] = matrix[(row, column)] - f(row, column);
@@ -374,10 +425,17 @@ fn subtract_from_matrix<T, F>(matrix: &mut T, size: &MatrixSize, f: F)
     }
 }
 
-fn find_smallest_vector<T, F>(matrix: &T, outer_size: usize, inner_size: usize, f: F) -> Vec<T::Output> 
-    where F: Fn(usize, usize) -> Edge,
-          T: IndexMut<Edge>,
-          T::Output: Weight {
+fn find_smallest_vector<T, F>(
+    matrix: &T,
+    outer_size: usize,
+    inner_size: usize,
+    f: F,
+) -> Vec<T::Output>
+where
+    F: Fn(usize, usize) -> Edge,
+    T: IndexMut<Edge>,
+    T::Output: Weight,
+{
     let mut smallest_in_outside = Vec::new();
     for outer in 0..outer_size {
         // Take the first as initial smallest values, then we'll search the remaining
@@ -394,27 +452,30 @@ fn find_smallest_vector<T, F>(matrix: &T, outer_size: usize, inner_size: usize, 
     smallest_in_outside
 }
 
-
 /// We perform a reduction step over each row, subtracting
 /// the smallest value of each from every element in that row.
-/// this step will ensure that every row has at least one zero. 
+/// this step will ensure that every row has at least one zero.
 fn reduce_edges<'a, T>(matrix: &'a mut T, size: &MatrixSize) -> &'a mut T
-    where T: IndexMut<Edge>,
-          T::Output: Weight {
-    let smallest_in_row = find_smallest_vector(matrix, size.rows, size.columns, |row, column| (row, column));
+where
+    T: IndexMut<Edge>,
+    T::Output: Weight,
+{
+    let smallest_in_row =
+        find_smallest_vector(matrix, size.rows, size.columns, |row, column| (row, column));
     subtract_from_matrix(matrix, size, |row, _| smallest_in_row[row]);
+    let smallest_in_column =
+        find_smallest_vector(matrix, size.columns, size.rows, |column, row| (row, column));
+    subtract_from_matrix(matrix, size, |_, column| smallest_in_column[column]);
 
     // assertion: every row has at least one zero.
     matrix
 }
-
 
 /// Choose edges from `zeros` such that no two edges connect to the same vertex.
 fn initial_stars(zeros: &Vec<Edge>) -> HashSet<Edge> {
     let mut stars = HashSet::new();
     let mut columns = BitSet::new();
     let mut rows = BitSet::new();
-
 
     for &(row, column) in zeros {
         if !columns.contains(column) && !rows.contains(row) {
@@ -424,12 +485,53 @@ fn initial_stars(zeros: &Vec<Edge>) -> HashSet<Edge> {
         }
     }
 
-
     stars
 }
-
 
 fn cover_starred_columns(cover: &mut BitSet, stars: &HashSet<Edge>) {
     cover.clear();
     cover.extend(stars.iter().map(|x| x.1));
 }
+
+/*
+fn debug_state<T>(
+    matrix: &T,
+    size: &MatrixSize,
+    columns_covered: &BitSet,
+    rows_covered: &BitSet,
+    stars: &HashSet<Edge>,
+    primes: &HashSet<Edge>,
+) where
+    T: IndexMut<Edge>,
+    T::Output: Weight,
+{
+    print!("  ");
+    for column in 0..size.columns {
+        if columns_covered.contains(column) {
+            print!(" C ");
+        } else {
+            print!("   ");
+        }
+    }
+    println!("");
+
+    for row in 0..size.rows {
+        if rows_covered.contains(row) {
+            print!("C ");
+        } else {
+            print!("  ");
+        }
+        for column in 0..size.columns {
+            if stars.contains(&(row, column)) {
+                print!("*")
+            } else if primes.contains(&(row, column)) {
+                print!("'");
+            } else {
+                print!(" ");
+            }
+            print!("{:?} ", matrix[(row, column)]);
+        }
+        println!("");
+    }
+}
+*/
