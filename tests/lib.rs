@@ -121,6 +121,21 @@ mod tests {
         assert!(result.contains(&(1, 0)));
         assert!(result.contains(&(2, 2)));
     }
+    #[test]
+    fn solve_issue_6() {
+        let test_matrix = na::DMatrix::from_row_slice(
+            5,
+            5,
+            &[
+                3, 6, 2, 5, 7, 2, 3, 1, 4, 3, 8, 1, 4, 2, 2, 6, 3, 1, 4, 4, 3, 2, 5, 2, 2,
+            ],
+        );
+        let result = test_matrix.munkres();
+        println!("{:?}", result);
+        assert_eq!(result.len(), 5);
+        let cost = result.iter().fold(0, |acc, edge| acc + test_matrix[*edge]);
+        assert_eq!(cost, 10);
+    }
 
     quickcheck! {
         fn number_of_results_is_k(matrix: na::DMatrix<u32>) -> TestResult {
