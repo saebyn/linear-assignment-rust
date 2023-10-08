@@ -131,6 +131,22 @@ mod tests {
         let cost = result.iter().fold(0, |acc, edge| acc + test_matrix[*edge]);
         assert_eq!(cost, 10);
     }
+    #[test]
+    fn solve_issue_10() {
+        let test_matrix = na::DMatrix::from_row_slice(
+            4, 4,
+
+            &[ 8, 5, 9, 9,
+               4, 2, 6, 4,
+               7, 3, 7, 8, ]
+        );
+
+        let result = test_matrix.munkres();
+        println!("{:?}", result);
+        assert_eq!(result.len(), 3);
+        let cost = result.iter().fold(0, |acc, edge| acc + test_matrix[*edge]);
+        assert_eq!(cost, 15);
+    }
 
     quickcheck! {
         fn number_of_results_is_k(matrix: na::DMatrix<u32>) -> TestResult {
