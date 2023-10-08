@@ -12,15 +12,8 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#[cfg(test)]
-#[macro_use]
-extern crate quickcheck;
 
-extern crate bit_set;
-extern crate env_logger;
-extern crate linear_assignment;
 extern crate nalgebra as na;
-extern crate rand;
 
 use std::collections::HashSet;
 
@@ -56,10 +49,12 @@ impl LinearAssignmentProblem for na::DMatrix<u32> {
 
 #[cfg(test)]
 mod tests {
-    use bit_set::BitSet;
-    use quickcheck::TestResult;
     use std::cmp;
-    use LinearAssignmentProblem;
+
+    use bit_set::BitSet;
+    use quickcheck::{quickcheck, TestResult};
+
+    use crate::LinearAssignmentProblem;
 
     #[test]
     fn solve_1x1() {

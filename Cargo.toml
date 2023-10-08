@@ -7,6 +7,7 @@ version = "0.0.2"
 authors = ["John Weaver <john@saebyn.info>"]
 license = "AGPL-3.0"
 readme = "README.md"
+edition = "2021"
 
 
 [lib]
@@ -18,25 +19,25 @@ harness = false
 
 
 [dependencies]
-num = "0.2.0"
+num = "0.4.1"
 log = "0.4.8"
 bit-set = "0.5.1"
 
 [dev-dependencies]
-criterion = "0.3.0"
+criterion = "0.5.1"
 
 [dev-dependencies.nalgebra]
-version = "0.19.0"
+version = "0.32.1"
 features = ["arbitrary"]
 
 [dev-dependencies.rand]
 version = "*"
 
 [dev-dependencies.quickcheck]
-version = "0.9.0"
+version = "1.0.3"
 
 [dev-dependencies.quickcheck_macros]
-version = "0.8.0"
+version = "1.0.0"
 
 [dev-dependencies.env_logger]
 version = "*"

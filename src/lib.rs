@@ -26,14 +26,9 @@ use std::ops::Index;
 use std::ops::IndexMut;
 use std::ops::Sub;
 
-extern crate bit_set;
-extern crate num;
-
 use bit_set::BitSet;
+use log::info;
 use num::Zero;
-
-#[macro_use]
-extern crate log;
 
 /// An edge between `U` and `V`: (u, v)
 pub type Edge = (usize, usize);
