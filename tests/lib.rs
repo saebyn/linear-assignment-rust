@@ -134,7 +134,7 @@ mod tests {
     #[test]
     fn solve_issue_10() {
         let test_matrix = na::DMatrix::from_row_slice(
-            4, 4,
+            3, 4,
 
             &[ 8, 5, 9, 9,
                4, 2, 6, 4,
