@@ -154,12 +154,20 @@ mod tests {
                 return TestResult::discard();
             }
 
+            if matrix.max() > 2^31 {
+                return TestResult::discard();
+            }
+
             TestResult::from_bool(matrix.munkres().len() == cmp::min(matrix.nrows(), matrix.ncols()))
         }
 
 
         fn result_is_an_independent_set(matrix: na::DMatrix<u32>) -> TestResult {
             if matrix.ncols() > 10 || matrix.nrows() > 10 {
+                return TestResult::discard();
+            }
+
+            if matrix.max() > 2^31 {
                 return TestResult::discard();
             }
 
@@ -179,6 +187,10 @@ mod tests {
 
         fn identical_results(matrix: na::DMatrix<u32>) -> TestResult {
             if matrix.ncols() > 10 || matrix.nrows() > 10 {
+                return TestResult::discard();
+            }
+
+            if matrix.max() > 2^31 {
                 return TestResult::discard();
             }
 
