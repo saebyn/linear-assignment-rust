@@ -27,7 +27,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("square matrix", |b| {
         b.iter(|| {
             let matrix = black_box(na::DMatrix::<u32>::from_fn(100, 100, |_x, _y| rng.gen()));
-            linear_assignment::solver(&matrix)
+            linear_assignment::solver(&mut matrix.clone())
         })
     });
 }

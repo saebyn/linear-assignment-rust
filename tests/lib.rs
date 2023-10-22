@@ -25,14 +25,14 @@ mod tests {
     #[test]
     fn solve_1x1() {
         let test_matrix = na::DMatrix::from_row_slice(1, 1, &[0]);
-        let result = linear_assignment::solver(&test_matrix);
+        let result = linear_assignment::solver(&mut test_matrix.clone());
         assert!(result.len() == 1);
         assert!(result.contains(&(0, 0)));
     }
     #[test]
     fn solve_2x2_case_1() {
         let test_matrix = na::DMatrix::from_row_slice(2, 2, &[1, 0, 0, 1]);
-        let result = linear_assignment::solver(&test_matrix);
+        let result = linear_assignment::solver(&mut test_matrix.clone());
         assert!(result.len() == 2);
         assert!(result.contains(&(0, 1)));
         assert!(result.contains(&(1, 0)));
@@ -40,7 +40,7 @@ mod tests {
     #[test]
     fn solve_2x2_case_2() {
         let test_matrix = na::DMatrix::from_row_slice(2, 2, &[0, 1, 1, 0]);
-        let result = linear_assignment::solver(&test_matrix);
+        let result = linear_assignment::solver(&mut test_matrix.clone());
         assert!(result.len() == 2);
         assert!(result.contains(&(0, 0)));
         assert!(result.contains(&(1, 1)));
@@ -48,7 +48,7 @@ mod tests {
     #[test]
     fn solve_3x3_case_1() {
         let test_matrix = na::DMatrix::from_row_slice(3, 3, &[1, 0, 1, 0, 1, 1, 1, 1, 0]);
-        let result = linear_assignment::solver(&test_matrix);
+        let result = linear_assignment::solver(&mut test_matrix.clone());
         assert!(result.len() == 3);
         assert!(result.contains(&(0, 1)));
         assert!(result.contains(&(1, 0)));
@@ -57,7 +57,7 @@ mod tests {
     #[test]
     fn solve_3x2_case_1() {
         let test_matrix = na::DMatrix::from_row_slice(3, 2, &[1, 2, 0, 9, 9, 9]);
-        let result = linear_assignment::solver(&test_matrix);
+        let result = linear_assignment::solver(&mut test_matrix.clone());
         assert!(result.len() == 2);
         println!("{:?}", result);
         assert!(result.contains(&(0, 1)));
@@ -66,7 +66,7 @@ mod tests {
     #[test]
     fn solve_2x3_case_1() {
         let test_matrix = na::DMatrix::from_row_slice(2, 3, &[1, 0, 9, 2, 9, 9]);
-        let result = linear_assignment::solver(&test_matrix);
+        let result = linear_assignment::solver(&mut test_matrix.clone());
         assert!(result.len() == 2);
         println!("{:?}", result);
         assert!(result.contains(&(0, 1)));
@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn solve_3x3_case_2() {
         let test_matrix = na::DMatrix::from_row_slice(3, 3, &[1, 0, 9, 2, 9, 9, 10, 10, 10]);
-        let result = linear_assignment::solver(&test_matrix);
+        let result = linear_assignment::solver(&mut test_matrix.clone());
         assert!(result.len() == 3);
         println!("{:?}", result);
         assert!(result.contains(&(0, 1)));
@@ -91,7 +91,7 @@ mod tests {
                 3, 6, 2, 5, 7, 2, 3, 1, 4, 3, 8, 1, 4, 2, 2, 6, 3, 1, 4, 4, 3, 2, 5, 2, 2,
             ],
         );
-        let result = linear_assignment::solver(&test_matrix);
+        let result = linear_assignment::solver(&mut test_matrix.clone());
         println!("{:?}", result);
         assert_eq!(result.len(), 5);
         let cost = result.iter().fold(0, |acc, edge| acc + test_matrix[*edge]);
@@ -101,7 +101,7 @@ mod tests {
     fn solve_issue_10() {
         let test_matrix = na::DMatrix::from_row_slice(3, 4, &[8, 5, 9, 9, 4, 2, 6, 4, 7, 3, 7, 8]);
 
-        let result = linear_assignment::solver(&test_matrix);
+        let result = linear_assignment::solver(&mut test_matrix.clone());
         println!("{:?}", result);
         assert_eq!(result.len(), 3);
         let cost = result.iter().fold(0, |acc, edge| acc + test_matrix[*edge]);
@@ -110,6 +110,7 @@ mod tests {
 
     quickcheck! {
         fn number_of_results_is_k(matrix: na::DMatrix<u32>) -> TestResult {
+            let mut matrix = matrix.clone();
             if matrix.ncols() > 10 || matrix.nrows() > 10 {
                 return TestResult::discard();
             }
@@ -118,11 +119,12 @@ mod tests {
                 return TestResult::discard();
             }
 
-            TestResult::from_bool(linear_assignment::solver(&matrix).len() == cmp::min(matrix.nrows(), matrix.ncols()))
+            TestResult::from_bool(linear_assignment::solver(&mut matrix).len() == cmp::min(matrix.nrows(), matrix.ncols()))
         }
 
 
         fn result_is_an_independent_set(matrix: na::DMatrix<u32>) -> TestResult {
+            let mut matrix = matrix.clone();
             if matrix.ncols() > 10 || matrix.nrows() > 10 {
                 return TestResult::discard();
             }
@@ -135,7 +137,7 @@ mod tests {
             let mut columns = BitSet::new();
             let mut count = 0;
 
-            for (row, column) in linear_assignment::solver(&matrix) {
+            for (row, column) in linear_assignment::solver(&mut matrix) {
                 rows.insert(row);
                 columns.insert(column);
                 count = count + 1;
@@ -146,6 +148,7 @@ mod tests {
 
 
         fn identical_results(matrix: na::DMatrix<u32>) -> TestResult {
+            let mut matrix = matrix.clone();
             if matrix.ncols() > 10 || matrix.nrows() > 10 {
                 return TestResult::discard();
             }
@@ -154,7 +157,7 @@ mod tests {
                 return TestResult::discard();
             }
 
-            TestResult::from_bool(linear_assignment::solver(&matrix) == linear_assignment::solver(&matrix))
+            TestResult::from_bool(linear_assignment::solver(&mut matrix) == linear_assignment::solver(&mut matrix))
         }
     }
 }

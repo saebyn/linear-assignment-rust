@@ -56,7 +56,7 @@ impl<T: Zero + Add<Output = T> + Sub<Output = T> + Ord + Copy + Debug> Weight fo
 ///
 /// Warning: there is the potential for overflow if the values in `matrix` are larger than 1/2 the
 /// maximum representable value of the type of the values in `matrix`.
-pub fn solver<T>(matrix: &DMatrix<T>) -> HashSet<Edge>
+pub fn solver<T>(matrix: &mut DMatrix<T>) -> HashSet<Edge>
 where
     T: Weight,
     T: 'static,
@@ -72,13 +72,30 @@ where
         matrix.ncols()
     );
 
-    let transposed = matrix.nrows() > matrix.ncols();
+    // If the input matrix isn't square, make it square
+    // and fill the empty values with the largest value present
+    // in the matrix.
+    if !matrix.is_square() {
+        let max_length = cmp::max(matrix.nrows(), matrix.ncols());
+        let max = matrix.iter().fold(T::zero(), |acc, &x| cmp::max(acc, x));
 
-    let mut matrix = if transposed {
-        matrix.transpose()
-    } else {
-        matrix.clone()
-    };
+        let mut new_matrix = DMatrix::from_element(max_length, max_length, max);
+
+        // copy the values from the old matrix into the new matrix
+        for row in 0..matrix.nrows() {
+            for column in 0..matrix.ncols() {
+                new_matrix[(row, column)] = matrix[(row, column)];
+            }
+        }
+
+        let extra_stars = solver(&mut new_matrix);
+
+        // remove the extra edges from the result
+        return extra_stars
+            .into_iter()
+            .filter(|&(row, column)| row < matrix.nrows() && column < matrix.ncols())
+            .collect::<HashSet<_>>();
+    }
 
     debug_assert!(matrix.ncols() >= matrix.nrows());
 
@@ -96,7 +113,7 @@ where
     // zero. Because we are only interested in returning the edges from `U` to `V` that represent
     // the smallest sum of weights, and not the sum of weights itself, we don't need to retain the
     // original values.
-    reduce_edges(&mut matrix);
+    reduce_edges(matrix);
 
     // The algorithm proceeds by "starring" zero weight edges that are optimal with respect to the
     // graph containing only edges that we have starred.
@@ -154,7 +171,7 @@ where
                 find_uncovered_zero(&find_zeros(&matrix), &columns_covered, &rows_covered) == None
             );
 
-            adjust_weights(&mut matrix, &mut columns_covered, &mut rows_covered);
+            adjust_weights(matrix, &mut columns_covered, &mut rows_covered);
         }
     }
     // Once here, we have found our solution in the `stars`.
@@ -163,11 +180,7 @@ where
     debug_assert!(stars.len() == matrix.nrows());
     info!("Exiting solver.");
 
-    if transposed {
-        stars.iter().map(|&(v, u)| (u, v)).collect()
-    } else {
-        stars
-    }
+    stars
 }
 
 /// Prime all uncovered zeros, covering its row, and uncovering its column.
@@ -453,7 +466,7 @@ where
 /// We perform a reduction step over each row, subtracting
 /// the smallest value of each from every element in that row.
 /// this step will ensure that every row has at least one zero.
-fn reduce_edges<'a, T>(matrix: &'a mut DMatrix<T>) -> &'a mut DMatrix<T>
+fn reduce_edges<'a, T>(matrix: &'a mut DMatrix<T>)
 where
     T: Weight,
 {
@@ -469,7 +482,6 @@ where
     subtract_from_matrix(matrix, |_, column| smallest_in_column[column]);
 
     // assertion: every row has at least one zero.
-    matrix
 }
 
 /// Choose edges from `zeros` such that no two edges connect to the same vertex.
