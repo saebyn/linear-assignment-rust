@@ -22,43 +22,12 @@ use rand::Rng;
 extern crate linear_assignment;
 extern crate nalgebra as na;
 
-use std::collections::HashSet;
-
-use linear_assignment::*;
-
-trait LinearAssignmentProblem {
-    fn munkres(&self) -> HashSet<Edge>;
-}
-
-impl LinearAssignmentProblem for na::DMatrix<u32> {
-    fn munkres(&self) -> HashSet<Edge> {
-        let mut matrix = &mut na::DMatrix::<u32>::zeros(self.nrows(), self.ncols());
-        matrix.clone_from(self);
-        let transposed = self.nrows() > self.ncols();
-
-        if transposed {
-            matrix.transpose_mut();
-        }
-        let size = MatrixSize {
-            rows: matrix.nrows(),
-            columns: matrix.ncols(),
-        };
-        assert!(size.columns >= size.rows);
-        let edges = solver::<na::DMatrix<u32>>(&mut matrix, &size);
-        if transposed {
-            edges.iter().map(|&(v, u)| (u, v)).collect()
-        } else {
-            edges
-        }
-    }
-}
-
 fn criterion_benchmark(c: &mut Criterion) {
     let mut rng = rand::thread_rng();
     c.bench_function("square matrix", |b| {
         b.iter(|| {
             let matrix = black_box(na::DMatrix::<u32>::from_fn(100, 100, |_x, _y| rng.gen()));
-            matrix.munkres()
+            linear_assignment::solver(&mut matrix.clone())
         })
     });
 }
