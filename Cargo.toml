@@ -23,12 +23,12 @@ num = "0.4.1"
 log = "0.4.8"
 bit-set = "0.5.1"
 
-[dev-dependencies]
-criterion = "0.5.1"
-
-[dev-dependencies.nalgebra]
+[dependencies.nalgebra]
 version = "0.32.1"
 features = ["arbitrary"]
+
+[dev-dependencies]
+criterion = "0.5.1"
 
 [dev-dependencies.rand]
 version = "*"
